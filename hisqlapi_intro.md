@@ -1,0 +1,93 @@
+HiSQLAPI is a high performance c++ wrapper to access SQLite3, MySQL, PostgreSQL, Sybase, Oracle, DB2, SQL Server etc.  It's the wrapper of the native C-API of the above DBMS.
+At the same time, HiSQLAPI support ODBC etc.
+
+# Introduction #
+
+The content in the distribution of hisqlapi.
+  * build\debug, the debug version of dlls are put here
+  * build\release, the release version of dlls are put here
+  * hisqlapi\**, all the header files needed are put here
+  * hisqlapi\_demo, a demo project is put here, it's a VC6 project.
+> > You need to put hisqlapi\**
+
+&lt;dbms&gt;
+
+ into your header file search path to build your own project.
+
+
+# Details #
+
+1. Run the demo sample:
+
+  * Open the hisqlapi\_demo project
+  * build it.
+
+> The code is very simple:
+```
+void testSqlite(const char* dbPath)
+{
+	time_t t0; time(&t0);
+	HiSqlite3Connection conn;
+	try
+	{
+		conn.connect(dbPath, "", "");
+		conn.executeCmd("create table t(id int primary key, col2 varchar(32), col3 double, col4 blob)");
+		char sql[256];
+		conn.begin();
+		for (int i=0; i<1000; i++)
+		{
+			sprintf(sql, "insert into t(id, col2) values(%ld, 'xxx_%ld')", (i+1), (i+1));
+			conn.executeCmd(sql);
+		}
+		conn.commit();
+
+		memset(sql, 0, sizeof(sql));
+		sprintf(sql, "update t set col3 = :1, col4 = :col4 where id = :2");
+		HiSqlite3Statement* stmt = conn.prepareStatement(sql);
+		stmt->setDouble(1, 12345.45f);
+        HiMemStream ms;
+	    for (int i=0; i<10000; i++)
+	    {
+		    ms<<i;
+	    }
+	    tblob_ lob;
+	    ms.getData(lob);
+        stmt->setBlob(2, lob);
+        stmt->setInt(3, 1);
+		stmt->executeUpdate();
+		std::cout<<"after update, affected count = "<<stmt->affectedRows()<<std::endl;
+		delete stmt;
+
+		stmt = conn.createStatement();
+		HiSqlite3ResultSet* rset = stmt->executeQuery("select * from t where id = 1");
+		while (rset->next())
+		{
+			std::cout<<"col3 = "<<rset->getValue(3)<<std::endl;
+		}
+		rset->close();
+		delete rset;
+
+		delete stmt;
+
+        std::cout<<"default autocommit = " <<conn.getAutoCommit()<<std::endl;
+        conn.setAutoCommit(false);
+        std::cout<<"after set false, autocommit = " <<conn.getAutoCommit()<<std::endl;
+        conn.setAutoCommit(true);
+        std::cout<<"after set true, autocommit = " <<conn.getAutoCommit()<<std::endl;
+                
+
+		conn.executeCmd("drop table t");
+		time_t t1; time(&t1);
+		std::cout<<"total time of testSqlite(insert): "<<difftime(t1, t0)<<" seconds"<<std::endl;
+
+		time(&t0);
+		conn.vacuumDB();
+		time(&t1);
+		std::cout<<"total time of testSqlite(vacuum db): "<<difftime(t1, t0)<<" seconds"<<std::endl;
+	}
+	catch (HiException& ex)
+	{
+		std::cout<<ex.errText()<<std::endl;
+	}
+}
+```
